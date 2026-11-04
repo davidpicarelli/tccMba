@@ -1,33 +1,33 @@
 # ============================================================================
-# SCRIPT 2: ANÁLISE FISCAL COMPARATIVA - CUSTO TRIBUTÁRIO ACUMULADO
+# SCRIPT 2 CORRIGIDO: ANÁLISE FISCAL COMPARATIVA - CUSTO TRIBUTÁRIO ACUMULADO
 # Comparação de impacto fiscal entre estruturas offshore ao longo de 5 anos
 # TCC: Análise Comparativa de Estruturas de Investimento Offshore
 # ============================================================================
 
-# Carregar bibliotecas necessárias
 library(tidyverse)
 library(ggplot2)
 
 # ============================================================================
-# 1. USAR RESULTADOS DO SCRIPT 1
+# 1. USAR RESULTADOS DO SCRIPT 1 CORRIGIDO
 # ============================================================================
 
-# Se você rodou o Script 1, os dados já estão em 'resultados_completos'
-# Se não, execute o Script 1 primeiro ou copie os dados abaixo
-
-# Caso contrário, aqui está um resumo dos dados para continuar:
-# (Pulamos a simulação completa e focamos na análise fiscal)
+# Os dados estão em 'resultados_completos' (gerado pelo Script 1)
+# Verifique se o objeto existe
+if (!exists("resultados_completos")) {
+  stop("Erro: Execute o Script 1 primeiro!")
+}
 
 # ============================================================================
 # 2. CALCULAR IMPOSTOS TOTAIS POR ESTRUTURA (5 ANOS)
 # ============================================================================
 
-# Usar os dados do Script 1
+# CORRIGIDO: usar as colunas corretas do Script 1 novo
 analise_fiscal <- resultados_completos %>%
+  filter(semestre > 0) %>%  # Excluir semestre 0 (inicial)
   group_by(estrutura) %>%
   summarise(
-    # Soma de come-cotas ao longo de 5 anos
-    come_cotas_total = sum(imposto_come_cotas, na.rm = TRUE),
+    # Soma de come-cotas ao longo de 5 anos (CORRIGIDO: come_cotas, não imposto_come_cotas)
+    come_cotas_total = sum(come_cotas, na.rm = TRUE),
     
     # Soma de IR ordinário ao longo de 5 anos
     ir_ordinario_total = sum(imposto_ir, na.rm = TRUE),
@@ -38,7 +38,7 @@ analise_fiscal <- resultados_completos %>%
     # Total de impostos + custos
     custo_fiscal_total = come_cotas_total + ir_ordinario_total + custo_operacional_total,
     
-    # Patrimônio final (ano 5)
+    # Patrimônio final (semestre 10 = ano 5)
     patrimonio_final = last(patrimonio_liquido),
     
     # Patrimônio inicial
@@ -60,12 +60,12 @@ print(analise_fiscal)
 # 3. TABELA DETALHADA: IMPOSTO POR ANO
 # ============================================================================
 
-# Criar tabela mostrando evolução de impostos ano a ano
+# CORRIGIDO: usar coluna 'come_cotas' em vez de 'imposto_come_cotas'
 imposto_por_ano <- resultados_completos %>%
-  filter(ano > 0) %>%  # Excluir ano 0 (inicial)
-  select(ano, estrutura, imposto_come_cotas, imposto_ir, custo_operacional_valor) %>%
+  filter(semestre > 0) %>%  # Excluir semestre 0
+  select(ano, estrutura, come_cotas, imposto_ir, custo_operacional_valor) %>%
   mutate(
-    imposto_total_ano = imposto_come_cotas + imposto_ir + custo_operacional_valor
+    imposto_total_ano = come_cotas + imposto_ir + custo_operacional_valor
   ) %>%
   arrange(estrutura, ano)
 
@@ -206,5 +206,5 @@ cat("\n=== ECONOMIA FISCAL COMPARADA À ESTRUTURA MAIS CARA ===\n")
 print(economia_fiscal)
 
 # ============================================================================
-# FIM DO SCRIPT 2
+# FIM DO SCRIPT 2 CORRIGIDO
 # ============================================================================

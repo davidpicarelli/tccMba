@@ -1,17 +1,12 @@
 # ============================================================================
-# SCRIPT 4: EXPORTAR TABELAS PARA WORD
-# Converte tabelas dos Scripts 1, 2 e 3 em documentos Word formatados
+# SCRIPT 4 CORRIGIDO v2: EXPORTAR TABELAS PARA TODAS AS 6 ESTRUTURAS
 # ============================================================================
 
-# Instalar flextable (execute uma única vez)
-# install.packages("flextable")
-
-# Carregar bibliotecas
 library(flextable)
 library(tidyverse)
 
 # ============================================================================
-# 1. CRIAR PASTA PARA TABELAS (se não existir)
+# 1. CRIAR PASTA PARA TABELAS
 # ============================================================================
 
 if (!dir.exists("tabelas")) {
@@ -19,125 +14,178 @@ if (!dir.exists("tabelas")) {
   cat("✓ Pasta 'tabelas' criada\n")
 }
 
-# ============================================================================
-# 2. EXPORTAR TABELA 1: PROGRESSÃO PATRIMONIAL (Script 1)
-# ============================================================================
-
-cat("\n=== EXPORTANDO TABELAS ===\n")
-
-# Tabela de progressão (exemplo: Fundos Multimercado)
-tabela_progressao <- resultados_completos %>%
-  filter(estrutura == "Fundos Multimercado") %>%
-  select(ano, patrimonio_bruto, imposto_come_cotas, imposto_ir, patrimonio_liquido) %>%
-  mutate(
-    patrimonio_bruto = format(patrimonio_bruto, big.mark = ".", decimal.mark = ",", nsmall = 0),
-    imposto_come_cotas = format(imposto_come_cotas, big.mark = ".", decimal.mark = ",", nsmall = 0),
-    imposto_ir = format(imposto_ir, big.mark = ".", decimal.mark = ",", nsmall = 0),
-    patrimonio_liquido = format(patrimonio_liquido, big.mark = ".", decimal.mark = ",", nsmall = 0)
-  ) %>%
-  rename(
-    "Ano" = ano,
-    "Patrimônio Bruto (R$)" = patrimonio_bruto,
-    "Come-cotas (R$)" = imposto_come_cotas,
-    "IR Ordinário (R$)" = imposto_ir,
-    "Patrimônio Líquido (R$)" = patrimonio_liquido
-  )
-
-# Formatar com flextable
-tabela1_formatada <- as_flextable(tabela_progressao) %>%
-  theme_vanilla() %>%
-  autofit()
-
-# Salvar como Word
-save_as_docx(tabela1_formatada, path = "tabelas/01_progressao_patrimonial.docx")
-cat("✓ Tabela 1 exportada: tabelas/01_progressao_patrimonial.docx\n")
+cat("\n=== EXPORTANDO TABELAS PARA TODAS AS 6 ESTRUTURAS ===\n")
 
 # ============================================================================
-# 3. EXPORTAR TABELA 2: ANÁLISE FISCAL (Script 2)
+# 2. EXPORTAR TABELAS DE PROGRESSÃO (UMA PARA CADA ESTRUTURA) - CORRIGIDO
 # ============================================================================
 
-tabela_fiscal <- analise_fiscal %>%
+estruturas_lista <- unique(resultados_completos$estrutura)
+
+for (est in estruturas_lista) {
+  
+  tabela_estrutura_dados <- resultados_completos %>%
+    filter(estrutura == est, semestre %% 2 == 0) %>%
+    select(ano, patrimonio_inicial_periodo, lucro_semestral, come_cotas, patrimonio_liquido) %>%
+    mutate(
+      patrimonio_inicial_periodo = format(patrimonio_inicial_periodo, big.mark = ".", decimal.mark = ",", nsmall = 0),
+      lucro_semestral = format(lucro_semestral, big.mark = ".", decimal.mark = ",", nsmall = 0),
+      come_cotas = format(come_cotas, big.mark = ".", decimal.mark = ",", nsmall = 0),
+      patrimonio_liquido = format(patrimonio_liquido, big.mark = ".", decimal.mark = ",", nsmall = 0)
+    ) %>%
+    rename(
+      "Ano" = ano,
+      "Patrimônio Inicial" = patrimonio_inicial_periodo,
+      "Lucro Semestral" = lucro_semestral,
+      "Come-cotas" = come_cotas,
+      "Patrimônio Líquido" = patrimonio_liquido
+    )
+  
+  # Criar tabela com flextable() diretamente (não usar as_flextable())
+  tabela_formatada <- flextable(tabela_estrutura_dados) %>%
+    theme_vanilla() %>%
+    autofit() %>%
+    # Adicionar nota em itálico no rodapé
+    add_footer_lines(
+      "Nota: Valores em Reais Brasileiros. Fonte: Elaborado pelo autor em linguagem R"
+    ) %>%
+    # Formatar nota em itálico
+    italic(i = 1, part = "footer") %>%
+    # Remover o "n: X" padrão do flextable
+    set_caption(caption = NULL)
+  
+  # Criar nome do arquivo
+  nome_arquivo <- est %>%
+    tolower() %>%
+    str_replace_all(" ", "_") %>%
+    str_replace_all("[/()/]", "") %>%
+    str_replace_all("-", "_")
+  
+  # Salvar como Word
+  caminho <- paste0("tabelas/progressao_", nome_arquivo, ".docx")
+  save_as_docx(tabela_formatada, path = caminho)
+  
+  cat("✓ Tabela exportada:", caminho, "\n")
+}
+
+# ============================================================================
+# 3. EXPORTAR TABELA 2: ANÁLISE FISCAL COMPARATIVA (CORRIGIDO v3)
+# ============================================================================
+
+tabela_fiscal_dados <- analise_fiscal %>%
   select(estrutura, custo_fiscal_total, taxa_tributacao_efetiva, patrimonio_final) %>%
   mutate(
-    custo_fiscal_total = format(custo_fiscal_total, big.mark = ".", decimal.mark = ",", nsmall = 0),
+    custo_fiscal_total = format(custo_fiscal_total, big.mark = ".", decimal.mark = ",", nsmall = 2),
     taxa_tributacao_efetiva = paste0(round(taxa_tributacao_efetiva, 2), "%"),
     patrimonio_final = format(patrimonio_final, big.mark = ".", decimal.mark = ",", nsmall = 0)
   ) %>%
   rename(
     "Estrutura" = estrutura,
-    "Custo Fiscal Total (R$)" = custo_fiscal_total,
-    "Taxa Tributação Efetiva (%)" = taxa_tributacao_efetiva,
-    "Patrimônio Final (R$)" = patrimonio_final
+    "Custo Fiscal Total" = custo_fiscal_total,
+    "Taxa Tributação Efetiva" = taxa_tributacao_efetiva,
+    "Patrimônio Final" = patrimonio_final
   )
 
-tabela2_formatada <- as_flextable(tabela_fiscal) %>%
+# Criar tabela com flextable() diretamente (não usar as_flextable())
+tabela2_formatada <- flextable(tabela_fiscal_dados) %>%
   theme_vanilla() %>%
-  autofit()
+  autofit() %>%
+  # Adicionar nota em itálico no rodapé
+  add_footer_lines(
+    "Nota: Valores em Reais Brasileiros. Fonte: Elaborado pelo autor em linguagem R"
+  ) %>%
+  # Formatar nota em itálico
+  italic(i = 1, part = "footer") %>%
+  # Remover o "n: 6" padrão do flextable
+  set_caption(caption = NULL) %>%
+  # Desabilitar o contador de linhas
+  set_table_properties(width = 1, layout = "autofit")
 
-save_as_docx(tabela2_formatada, path = "tabelas/02_analise_fiscal.docx")
-cat("✓ Tabela 2 exportada: tabelas/02_analise_fiscal.docx\n")
+save_as_docx(tabela2_formatada, path = "tabelas/02_analise_fiscal_comparativa.docx")
+cat("✓ Tabela 2 exportada: tabelas/02_analise_fiscal_comparativa.docx\n")
 
 # ============================================================================
 # 4. EXPORTAR TABELA 3: RECOMENDAÇÃO DINÂMICA (Script 3)
 # ============================================================================
 
-tabela_recomendacao <- resumo_recomendacao %>%
-  mutate(
-    ano = as.character(ano),
-    patrimonio_liquido = format(patrimonio_liquido, big.mark = ".", decimal.mark = ",", nsmall = 0),
-    score_final = as.character(score_final)
-  ) %>%
-  rename(
-    "Ano" = ano,
-    "Faixa de Patrimônio" = faixa_patrimonio,
-    "Estrutura Recomendada" = estrutura,
-    "Patrimônio Líquido (R$)" = patrimonio_liquido,
-    "Score Final" = score_final
-  )
-
-tabela3_formatada <- as_flextable(tabela_recomendacao) %>%
-  theme_vanilla() %>%
-  autofit()
-
-save_as_docx(tabela3_formatada, path = "tabelas/03_recomendacao_dinamica.docx")
-cat("✓ Tabela 3 exportada: tabelas/03_recomendacao_dinamica.docx\n")
+if (exists("resumo_recomendacao")) {
+  
+  tabela_recomendacao <- resumo_recomendacao %>%
+    mutate(
+      ano = as.character(ano),
+      patrimonio_liquido = format(patrimonio_liquido, big.mark = ".", decimal.mark = ",", nsmall = 0),
+      score_final = as.character(score_final)
+    ) %>%
+    rename(
+      "Ano" = ano,
+      "Faixa de Patrimônio" = faixa_patrimonio,
+      "Estrutura Recomendada" = estrutura,
+      "Patrimônio Líquido (R$)" = patrimonio_liquido,
+      "Score Final" = score_final
+    )
+  
+  tabela3_formatada <- as_flextable(tabela_recomendacao) %>%
+    theme_vanilla() %>%
+    autofit()
+  
+  save_as_docx(tabela3_formatada, path = "tabelas/03_recomendacao_dinamica.docx")
+  cat("✓ Tabela 3 exportada: tabelas/03_recomendacao_dinamica.docx\n")
+  
+} else {
+  cat("⚠ Tabela 3: Execute o Script 3 primeiro\n")
+}
 
 # ============================================================================
 # 5. EXPORTAR TABELA 4: SCORES COMBINADOS (Script 3)
 # ============================================================================
 
-tabela_scores <- scores_combinados %>%
-  mutate(
-    score_ahp = round(score_ahp, 2),
-    score_fiscal = round(score_fiscal, 2),
-    score_final = round(score_final, 2)
-  ) %>%
-  rename(
-    "Estrutura" = estrutura,
-    "Score AHP" = score_ahp,
-    "Score Fiscal" = score_fiscal,
-    "Score Final" = score_final
-  )
-
-tabela4_formatada <- as_flextable(tabela_scores) %>%
-  theme_vanilla() %>%
-  autofit()
-
-save_as_docx(tabela4_formatada, path = "tabelas/04_scores_combinados.docx")
-cat("✓ Tabela 4 exportada: tabelas/04_scores_combinados.docx\n")
+if (exists("scores_combinados")) {
+  
+  tabela_scores <- scores_combinados %>%
+    mutate(
+      score_ahp = round(score_ahp, 2),
+      score_fiscal = round(score_fiscal, 2),
+      score_final = round(score_final, 2)
+    ) %>%
+    rename(
+      "Estrutura" = estrutura,
+      "Score AHP" = score_ahp,
+      "Score Fiscal" = score_fiscal,
+      "Score Final" = score_final
+    )
+  
+  tabela4_formatada <- as_flextable(tabela_scores) %>%
+    theme_vanilla() %>%
+    autofit()
+  
+  save_as_docx(tabela4_formatada, path = "tabelas/04_scores_combinados.docx")
+  cat("✓ Tabela 4 exportada: tabelas/04_scores_combinados.docx\n")
+  
+} else {
+  cat("⚠ Tabela 4: Execute o Script 3 primeiro\n")
+}
 
 # ============================================================================
 # 6. RESUMO FINAL
 # ============================================================================
 
 cat("\n=== RESUMO DAS EXPORTAÇÕES ===\n")
-cat("Todas as tabelas foram exportadas para a pasta 'tabelas/':\n")
-cat("  1. 01_progressao_patrimonial.docx\n")
-cat("  2. 02_analise_fiscal.docx\n")
-cat("  3. 03_recomendacao_dinamica.docx\n")
-cat("  4. 04_scores_combinados.docx\n")
-cat("\nPróximo passo: Abra cada arquivo, copie a tabela e cole no seu TCC Word.\n")
+cat("Tabelas exportadas para a pasta 'tabelas/':\n\n")
+cat("PROGRESSÃO PATRIMONIAL (uma para cada estrutura):\n")
+for (est in estruturas_lista) {
+  nome_arquivo <- est %>%
+    tolower() %>%
+    str_replace_all(" ", "_") %>%
+    str_replace_all("[/()/]", "") %>%
+    str_replace_all("-", "_")
+  cat("  • progressao_", nome_arquivo, ".docx\n", sep = "")
+}
+cat("\nCOMPARATIVAS:\n")
+cat("  • 02_analise_fiscal_comparativa.docx\n")
+cat("  • 03_recomendacao_dinamica.docx (após Script 3)\n")
+cat("  • 04_scores_combinados.docx (após Script 3)\n")
+cat("\nPróximo passo: Abra cada arquivo e copie as tabelas para seu TCC Word.\n")
 
 # ============================================================================
-# FIM DO SCRIPT 4
+# FIM DO SCRIPT 4 CORRIGIDO v2
 # ============================================================================
