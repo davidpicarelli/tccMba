@@ -75,8 +75,7 @@ tccMba/
 ## Autor
 
 **David Picarelli Gonçalves**
-
-Contador, Perito Contábil e Assessor de Investimentos (XP Investimentos)
+Lattes: https://lattes.cnpq.br/5376879868796401
 
 ```
 ```
