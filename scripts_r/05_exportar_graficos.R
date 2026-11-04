@@ -18,7 +18,7 @@ if (!dir.exists("graficos")) {
 cat("\n=== EXPORTANDO GRÁFICOS ===\n")
 
 # ============================================================================
-# 2. GRÁFICOS INDIVIDUAIS: PROGRESSÃO POR ESTRUTURA (6 GRÁFICOS) - CORRIGIDO v5
+# 2. GRÁFICOS INDIVIDUAIS: PROGRESSÃO POR ESTRUTURA (6 GRÁFICOS) - CORRIGIDO v6
 # ============================================================================
 
 estruturas_lista <- unique(resultados_completos$estrutura)
@@ -65,14 +65,29 @@ for (est in estruturas_lista) {
   # Ordenar por tempo para a linha conectar corretamente
   dados_com_queda <- dados_com_queda %>% arrange(tempo_meses)
   
+  # Definir subtítulo e nota dinamicamente conforme incidência de come-cotas
+  tem_cc <- any(dados_estrutura$come_cotas > 0)
+  
+  subtitulo_graf <- ifelse(
+    tem_cc,
+    "Patrimônio Líquido ao longo de 5 anos | Juros compostos (8% a.a.) | Come-cotas deduzido em maio e novembro",
+    "Patrimônio Líquido ao longo de 5 anos | Juros compostos (8% a.a.) | Sem incidência de come-cotas"
+  )
+  
+  nota_graf <- ifelse(
+    tem_cc,
+    "Nota: Linha verde = Patrimônio Líquido | Degraus visíveis nos semestres de retenção do come-cotas (maio e novembro).",
+    "Nota: Linha verde = Patrimônio Líquido deduzido de IR parametrizado e custos operacionais da estrutura."
+  )
+  
   # Criar gráfico
   grafico_individual <- dados_com_queda %>%
     ggplot(aes(x = tempo_meses, y = patrimonio / 1000000)) +
-    # Linha contínua do patrimônio (mostra a queda do come-cotas)
+    # Linha contínua do patrimônio (mostra a queda do come-cotas quando houver)
     geom_line(color = "#2ecc71", linewidth = 1.2) +
     # Pontos em todos os semestres
     geom_point(color = "#2ecc71", size = 3) +
-    # Adicionar anotações nos meses de maio e novembro (onde come-cotas é deduzido)
+    # Adicionar linhas verticais apenas onde o come-cotas é maior que zero
     geom_vline(
       data = dados_estrutura %>% filter(come_cotas > 0),
       aes(xintercept = tempo_meses),
@@ -88,10 +103,10 @@ for (est in estruturas_lista) {
     scale_y_continuous(labels = scales::dollar_format(prefix = "R$ ", suffix = "M")) +
     labs(
       title = paste0("Progressão Patrimonial - ", est),
-      subtitle = "Patrimônio Líquido ao longo de 5 anos | Juros compostos (8% a.a.) | Come-cotas deduzido em maio e novembro",
+      subtitle = subtitulo_graf,
       x = "Tempo (Meses)",
       y = "Patrimônio Líquido (R$ Milhões)",
-      caption = "Nota: Linha verde = Patrimônio Líquido | Quedas visíveis em maio (mês 5, 17, 29, 41, 53) e novembro (mês 11, 23, 35, 47, 59)"
+      caption = nota_graf
     ) +
     theme_minimal() +
     theme(
@@ -130,17 +145,18 @@ for (est in estruturas_lista) {
   
   cat("✓ Gráfico individual exportado: progressao_", nome_arquivo, ".png / .pdf\n", sep = "")
 }
+
 # ============================================================================
 # 3. GRÁFICO COMPARATIVO 1: EVOLUÇÃO DO PATRIMÔNIO (TODAS AS ESTRUTURAS)
 # ============================================================================
 
 dados_grafico <- resultados_completos %>%
-  filter(semestre %% 2 == 0)  # Apenas anos
+  filter(semestre %% 2 == 0)  # Apenas anos completos
 
 grafico_evolucao <- dados_grafico %>%
   ggplot(aes(x = ano, y = patrimonio_liquido / 1000000, 
              color = estrutura, group = estrutura)) +
-  geom_line(size = 1) +
+  geom_line(linewidth = 1) +
   geom_point(size = 2) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "R$ ", suffix = "M")) +
   labs(
@@ -419,8 +435,6 @@ cat("  • 06_scores_finais.png / .pdf (após Script 3)\n")
 
 cat("\nTOTAL: 12 gráficos individuais + 6 gráficos comparativos = 18 arquivos\n")
 cat("(6 PNG + 6 PDF individuais + 12 PNG/PDF comparativos)\n")
-
-cat("\nPróximo passo: Insira os gráficos no seu TCC Word (Apêndice 4.4)\n")
 
 # ============================================================================
 # FIM DO SCRIPT 5
